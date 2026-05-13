@@ -1,0 +1,378 @@
+<!-- ضع هذا في الـ HTML Widget -->
+<div id="fw-canvas-container" style="width:100%;height:600px;position:relative;background:#000;"></div>
+
+<div id="fw-notification-area" style="position:absolute;top:20px;left:50%;transform:translateX(-50%);z-index:100;display:flex;flex-direction:column;align-items:center;gap:10px;pointer-events:none;"></div>
+
+<div id="fw-title" style="position:absolute;top:20px;left:20px;z-index:100;color:white;font-size:18px;font-weight:bold;text-shadow:0 2px 10px rgba(0,0,0,0.8);">
+    Feature World<div style="font-size:12px;opacity:0.7;margin-top:4px;">Random Chaos Edition</div>
+</div>
+
+<div id="fw-status" style="position:absolute;top:20px;right:20px;z-index:100;background:rgba(0,0,0,0.7);padding:15px;border-radius:15px;color:white;font-size:14px;border:1px solid rgba(255,255,255,0.2);">
+    <div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><div id="fw-st-speed" style="width:10px;height:10px;border-radius:50%;background:#666;"></div><span>Speed Boost</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><div id="fw-st-slow" style="width:10px;height:10px;border-radius:50%;background:#666;"></div><span>Slow Motion</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><div id="fw-st-inv" style="width:10px;height:10px;border-radius:50%;background:#666;"></div><span>Invisible</span></div>
+    <div style="display:flex;align-items:center;gap:8px;margin:5px 0;"><div id="fw-st-giant" style="width:10px;height:10px;border-radius:50%;background:#666;"></div><span>Giant Mode</span></div>
+</div>
+
+<div id="fw-dpad" style="position:absolute;bottom:30px;left:30px;z-index:100;display:grid;grid-template-columns:60px 60px 60px;grid-template-rows:60px 60px 60px;gap:5px;user-select:none;">
+    <div data-dir="up" style="grid-column:2;grid-row:1;width:60px;height:60px;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.5);border-radius:12px;color:white;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;">▲</div>
+    <div data-dir="left" style="grid-column:1;grid-row:2;width:60px;height:60px;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.5);border-radius:12px;color:white;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;">◀</div>
+    <div data-dir="right" style="grid-column:3;grid-row:2;width:60px;height:60px;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.5);border-radius:12px;color:white;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;">▶</div>
+    <div data-dir="down" style="grid-column:2;grid-row:3;width:60px;height:60px;background:rgba(255,255,255,0.2);border:2px solid rgba(255,255,255,0.5);border-radius:12px;color:white;font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer;">▼</div>
+</div>
+
+<div id="fw-jump" style="position:absolute;bottom:50px;right:30px;z-index:100;width:80px;height:80px;background:rgba(255,100,100,0.3);border:3px solid rgba(255,100,100,0.6);border-radius:50%;color:white;font-size:16px;font-weight:bold;display:flex;align-items:center;justify-content:center;cursor:pointer;user-select:none;">JUMP</div>
+
+<!-- Three.js من CDN موثوق -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+(function() {
+    // Simplex Noise
+    var SimplexNoise = function() {
+        this.grad3 = [[1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],[1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],[0,1,1],[0,-1,1],[0,1,-1],[0,-1,-1]];
+        this.p = []; for(var i=0;i<<256;i++) this.p[i] = Math.floor(Math.random()*256);
+        this.perm = []; for(var i=0;i<<512;i++) this.perm[i] = this.p[i & 255];
+    };
+    SimplexNoise.prototype.dot = function(g, x, y) { return g[0]*x + g[1]*y; };
+    SimplexNoise.prototype.noise = function(xin, yin) {
+        var F2 = 0.5*(Math.sqrt(3.0)-1.0), G2 = (3.0-Math.sqrt(3.0))/6.0;
+        var s = (xin+yin)*F2, i = Math.floor(xin+s), j = Math.floor(yin+s);
+        var t = (i+j)*G2, X0 = i-t, Y0 = j-t, x0 = xin-X0, y0 = yin-Y0;
+        var i1, j1; if(x0>y0){i1=1;j1=0;}else{i1=0;j1=1;}
+        var x1=x0-i1+G2, y1=y0-j1+G2, x2=x0-1.0+2.0*G2, y2=y0-1.0+2.0*G2;
+        var ii=i&255, jj=j&255;
+        var gi0=this.perm[ii+this.perm[jj]]%12, gi1=this.perm[ii+i1+this.perm[jj+j1]]%12, gi2=this.perm[ii+1+this.perm[jj+1]]%12;
+        var t0=0.5-x0*x0-y0*y0, n0, t1=0.5-x1*x1-y1*y1, n1, t2=0.5-x2*x2-y2*y2, n2;
+        if(t0<<0)n0=0;else{t0*=t0;n0=t0*t0*this.dot(this.grad3[gi0],x0,y0);}
+        if(t1<<0)n1=0;else{t1*=t1;n1=t1*t1*this.dot(this.grad3[gi1],x1,y1);}
+        if(t2<<0)n2=0;else{t2*=t2;n2=t2*t2*this.dot(this.grad3[gi2],x2,y2);}
+        return 70.0*(n0+n1+n2);
+    };
+
+    var container = document.getElementById('fw-canvas-container');
+    var scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x87CEEB);
+    scene.fog = new THREE.Fog(0x87CEEB, 20, 100);
+
+    var camera = new THREE.PerspectiveCamera(75, container.clientWidth/container.clientHeight, 0.1, 1000);
+    camera.position.set(0, 15, 20);
+
+    var renderer = new THREE.WebGLRenderer({antialias:true});
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    container.appendChild(renderer.domElement);
+
+    // Lights
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    var dirLight = new THREE.DirectionalLight(0xffffff, 1);
+    dirLight.position.set(50,100,50);
+    dirLight.castShadow = true;
+    dirLight.shadow.camera.left=-50; dirLight.shadow.camera.right=50;
+    dirLight.shadow.camera.top=50; dirLight.shadow.camera.bottom=-50;
+    dirLight.shadow.camera.far=200;
+    dirLight.shadow.mapSize.width=2048; dirLight.shadow.mapSize.height=2048;
+    scene.add(dirLight);
+
+    var simplex = new SimplexNoise();
+
+    // Terrain
+    var terrainSize=200, terrainSegments=80;
+    var terrainGeo = new THREE.PlaneGeometry(terrainSize,terrainSize,terrainSegments,terrainSegments);
+    var tPos = terrainGeo.attributes.position.array;
+    for(var i=0;i<tPos.length;i+=3){
+        var x=tPos[i], y=tPos[i+1];
+        tPos[i+2] = simplex.noise(x*0.02,y*0.02)*8 + simplex.noise(x*0.05,y*0.05)*3 + simplex.noise(x*0.1,y*0.1)*1;
+    }
+    terrainGeo.computeVertexNormals();
+    var terrain = new THREE.Mesh(terrainGeo, new THREE.MeshStandardMaterial({color:0x3d7c47, roughness:0.8, metalness:0.1, flatShading:true}));
+    terrain.rotation.x = -Math.PI/2;
+    terrain.receiveShadow = true;
+    scene.add(terrain);
+
+    // Water
+    var water = new THREE.Mesh(new THREE.PlaneGeometry(terrainSize,terrainSize), new THREE.MeshStandardMaterial({color:0x4a90e2, transparent:true, opacity:0.6, roughness:0.1, metalness:0.8}));
+    water.rotation.x = -Math.PI/2; water.position.y = -2;
+    scene.add(water);
+
+    function getTerrainHeight(x,z){
+        return simplex.noise(x*0.02,-z*0.02)*8 + simplex.noise(x*0.05,-z*0.05)*3 + simplex.noise(x*0.1,-z*0.1)*1;
+    }
+
+    // Character
+    var charGroup = new THREE.Group();
+    var bodyMat = new THREE.MeshStandardMaterial({color:0x8B4513});
+    var headMat = new THREE.MeshStandardMaterial({color:0x228B22});
+    var eyeMat = new THREE.MeshStandardMaterial({color:0xffffff});
+    var pupilMat = new THREE.MeshStandardMaterial({color:0x000000});
+    var legMat = new THREE.MeshStandardMaterial({color:0x654321});
+
+    var body = new THREE.Mesh(new THREE.BoxGeometry(1,1.5,0.6), bodyMat);
+    body.position.y=0.75; body.castShadow=true; charGroup.add(body);
+
+    var head = new THREE.Mesh(new THREE.BoxGeometry(0.8,0.8,0.8), headMat);
+    head.position.y=1.9; head.castShadow=true; charGroup.add(head);
+
+    var le = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.15,0.1), eyeMat);
+    le.position.set(-0.2,2,0.4); charGroup.add(le);
+    var re = new THREE.Mesh(new THREE.BoxGeometry(0.15,0.15,0.1), eyeMat);
+    re.position.set(0.2,2,0.4); charGroup.add(re);
+    var lp = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.05), pupilMat);
+    lp.position.set(-0.2,2,0.45); charGroup.add(lp);
+    var rp = new THREE.Mesh(new THREE.BoxGeometry(0.08,0.08,0.05), pupilMat);
+    rp.position.set(0.2,2,0.45); charGroup.add(rp);
+
+    var lArm = new THREE.Mesh(new THREE.BoxGeometry(0.3,1,0.3), bodyMat);
+    lArm.position.set(-0.7,0.8,0); lArm.castShadow=true; charGroup.add(lArm);
+    var rArm = new THREE.Mesh(new THREE.BoxGeometry(0.3,1,0.3), bodyMat);
+    rArm.position.set(0.7,0.8,0); rArm.castShadow=true; charGroup.add(rArm);
+
+    var lLeg = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.8,0.4), legMat);
+    lLeg.position.set(-0.25,0.4,0); lLeg.castShadow=true; charGroup.add(lLeg);
+    var rLeg = new THREE.Mesh(new THREE.BoxGeometry(0.35,0.8,0.4), legMat);
+    rLeg.position.set(0.25,0.4,0); rLeg.castShadow=true; charGroup.add(rLeg);
+
+    scene.add(charGroup);
+
+    // Clouds
+    var cloudGroup = new THREE.Group();
+    var cloudMat = new THREE.MeshStandardMaterial({color:0xffffff, transparent:true, opacity:0.9, roughness:1});
+    for(var i=0;i<<15;i++){
+        var cloud = new THREE.Group();
+        for(var j=0;j<<3+Math.floor(Math.random()*4);j++){
+            var puff = new THREE.Mesh(new THREE.SphereGeometry(2+Math.random()*3,8,8), cloudMat);
+            puff.position.set((Math.random()-0.5)*6,(Math.random()-0.5)*2,(Math.random()-0.5)*4);
+            cloud.add(puff);
+        }
+        cloud.position.set((Math.random()-0.5)*150,25+Math.random()*15,(Math.random()-0.5)*150);
+        cloudGroup.add(cloud);
+    }
+    scene.add(cloudGroup);
+
+    // Collectibles
+    var collectibles = [];
+    var effects = ['speed-up','slow-down','invisible','giant','tiny','reverse','bounce'];
+    var effectNames = {'speed-up':'SPEED BOOST!','slow-down':'SLOW MOTION!','invisible':'INVISIBLE!','giant':'GIANT MODE!','tiny':'TINY MODE!','reverse':'REVERSE CONTROLS!','bounce':'SUPER BOUNCE!'};
+    var effectColors = {'speed-up':0xff6b6b,'slow-down':0x4ecdc4,'invisible':0xa8e6cf,'giant':0xffd93d,'tiny':0xc7ceea,'reverse':0xff8b94,'bounce':0xb4a7d6};
+    var geoms = [
+        new THREE.BoxGeometry(1.5,1.5,1.5), new THREE.SphereGeometry(1,16,16),
+        new THREE.ConeGeometry(1,2,8), new THREE.CylinderGeometry(0.5,0.5,2,8),
+        new THREE.TorusGeometry(1,0.4,8,16), new THREE.OctahedronGeometry(1.2)
+    ];
+
+    for(var i=0;i<<30;i++){
+        var eff = effects[Math.floor(Math.random()*effects.length)];
+        var geom = geoms[Math.floor(Math.random()*geoms.length)];
+        var mat = new THREE.MeshStandardMaterial({color:effectColors[eff], emissive:effectColors[eff], emissiveIntensity:0.3, roughness:0.3, metalness:0.7});
+        var mesh = new THREE.Mesh(geom, mat);
+        var x=(Math.random()-0.5)*160, z=(Math.random()-0.5)*160;
+        mesh.position.set(x, getTerrainHeight(x,z)+2+Math.random()*3, z);
+        mesh.castShadow=true;
+        mesh.userData = {effect:eff, originalY:mesh.position.y, rotSpeed:(Math.random()-0.5)*0.05, floatSpeed:0.5+Math.random()*1.5, floatOff:Math.random()*Math.PI*2};
+        scene.add(mesh); collectibles.push(mesh);
+    }
+
+    // Particles
+    var pGeo = new THREE.BufferGeometry();
+    var pCount = 50;
+    var pPos = new Float32Array(pCount*3);
+    for(var i=0;i<pCount*3;i++) pPos[i]=0;
+    pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+    var pMat = new THREE.PointsMaterial({size:0.5, color:0xffffff, transparent:true, opacity:1});
+    var particles = new THREE.Points(pGeo, pMat);
+    particles.visible = false;
+    scene.add(particles);
+
+    var activeEffects = {'speed-up':false,'slow-down':false,'invisible':false,'giant':false,'tiny':false,'reverse':false,'bounce':false};
+    var effectTimers = {};
+
+    function showNotif(effect){
+        var area = document.getElementById('fw-notification-area');
+        var div = document.createElement('div');
+        div.style.cssText = 'background:rgba(0,0,0,0.85);color:#fff;padding:12px 24px;border-radius:30px;font-size:16px;font-weight:bold;text-transform:uppercase;letter-spacing:1px;border:2px solid '+['#ff6b6b','#4ecdc4','#a8e6cf','#ffd93d','#c7ceea','#ff8b94','#b4a7d6'][effects.indexOf(effect)]+';animation:fwSlide 0.5s ease-out,fwFade 0.5s ease-in 2.5s forwards;box-shadow:0 4px 20px rgba(0,0,0,0.5);max-width:80vw;text-align:center;';
+        div.textContent = effectNames[effect];
+        area.appendChild(div);
+        setTimeout(function(){div.remove();},3000);
+    }
+
+    function updateStatus(){
+        document.getElementById('fw-st-speed').style.background = activeEffects['speed-up'] ? '#0f0' : '#666';
+        document.getElementById('fw-st-speed').style.boxShadow = activeEffects['speed-up'] ? '0 0 10px #0f0' : 'none';
+        document.getElementById('fw-st-slow').style.background = activeEffects['slow-down'] ? '#0f0' : '#666';
+        document.getElementById('fw-st-slow').style.boxShadow = activeEffects['slow-down'] ? '0 0 10px #0f0' : 'none';
+        document.getElementById('fw-st-inv').style.background = activeEffects['invisible'] ? '#0f0' : '#666';
+        document.getElementById('fw-st-inv').style.boxShadow = activeEffects['invisible'] ? '0 0 10px #0f0' : 'none';
+        document.getElementById('fw-st-giant').style.background = (activeEffects['giant']||activeEffects['tiny']) ? '#0f0' : '#666';
+        document.getElementById('fw-st-giant').style.boxShadow = (activeEffects['giant']||activeEffects['tiny']) ? '0 0 10px #0f0' : 'none';
+    }
+
+    function triggerEffect(effect){
+        showNotif(effect);
+        if(effectTimers[effect]) clearTimeout(effectTimers[effect]);
+        activeEffects[effect]=true; updateStatus();
+        if(effect==='invisible'){
+            charGroup.traverse(function(c){if(c.isMesh){c.material.transparent=true;c.material.opacity=0.3;}});
+        }else if(effect==='giant'){charGroup.scale.set(2,2,2);}else if(effect==='tiny'){charGroup.scale.set(0.5,0.5,0.5);}
+        effectTimers[effect]=setTimeout(function(){
+            activeEffects[effect]=false; updateStatus();
+            if(effect==='invisible'){charGroup.traverse(function(c){if(c.isMesh){c.material.transparent=false;c.material.opacity=1;}});}
+            else if(effect==='giant'||effect==='tiny'){charGroup.scale.set(1,1,1);}
+        },5000);
+    }
+
+    function spawnParticles(pos, color){
+        var arr = particles.geometry.attributes.position.array;
+        for(var i=0;i<pCount;i++){arr[i*3]=pos.x; arr[i*3+1]=pos.y; arr[i*3+2]=pos.z;}
+        particles.position.copy(pos); particles.visible=true;
+        particles.userData = {life:1, vels:[]};
+        for(var i=0;i<pCount;i++) particles.userData.vels.push({x:(Math.random()-0.5)*0.5,y:Math.random()*0.5,z:(Math.random()-0.5)*0.5});
+    }
+
+    // Controls
+    var keys = {up:false,down:false,left:false,right:false,jump:false};
+    var charState = {x:0,z:0,y:0,vy:0,speed:0.15,baseSpeed:0.15,onGround:true,walkCycle:0};
+
+    document.addEventListener('keydown',function(e){
+        switch(e.key.toLowerCase()){case'w':case'arrowup':keys.up=true;break;case's':case'arrowdown':keys.down=true;break;case'a':case'arrowleft':keys.left=true;break;case'd':case'arrowright':keys.right=true;break;case' ':keys.jump=true;break;}
+    });
+    document.addEventListener('keyup',function(e){
+        switch(e.key.toLowerCase()){case'w':case'arrowup':keys.up=false;break;case's':case'arrowdown':keys.down=false;break;case'a':case'arrowleft':keys.left=false;break;case'd':case'arrowright':keys.right=false;break;case' ':keys.jump=false;break;}
+    });
+
+    var dpad = document.querySelectorAll('#fw-dpad div');
+    var jumpBtn = document.getElementById('fw-jump');
+
+    dpad.forEach(function(btn){
+        btn.addEventListener('touchstart',function(e){e.preventDefault();var d=this.dataset.dir;if(d==='up')keys.up=true;if(d==='down')keys.down=true;if(d==='left')keys.left=true;if(d==='right')keys.right=true;});
+        btn.addEventListener('touchend',function(e){e.preventDefault();var d=this.dataset.dir;if(d==='up')keys.up=false;if(d==='down')keys.down=false;if(d==='left')keys.left=false;if(d==='right')keys.right=false;});
+        btn.addEventListener('mousedown',function(){var d=this.dataset.dir;if(d==='up')keys.up=true;if(d==='down')keys.down=true;if(d==='left')keys.left=true;if(d==='right')keys.right=true;});
+        btn.addEventListener('mouseup',function(){var d=this.dataset.dir;if(d==='up')keys.up=false;if(d==='down')keys.down=false;if(d==='left')keys.left=false;if(d==='right')keys.right=false;});
+    });
+
+    jumpBtn.addEventListener('touchstart',function(e){e.preventDefault();keys.jump=true;});
+    jumpBtn.addEventListener('touchend',function(e){e.preventDefault();keys.jump=false;});
+    jumpBtn.addEventListener('mousedown',function(){keys.jump=true;});
+    jumpBtn.addEventListener('mouseup',function(){keys.jump=false;});
+
+    // Random chaos
+    setInterval(function(){
+        if(Math.random()<<0.3){
+            var r = Math.floor(Math.random()*3);
+            if(r===0){camera.userData.shake=0.5;showNotif('bounce');}
+            else if(r===1){
+                var oc=scene.background.clone(); scene.background=new THREE.Color(Math.random()*0xffffff);
+                setTimeout(function(){scene.background=oc;},2000);
+            }else{
+                var eff=effects[Math.floor(Math.random()*effects.length)];
+                var geom=geoms[Math.floor(Math.random()*geoms.length)];
+                var mat=new THREE.MeshStandardMaterial({color:effectColors[eff],emissive:effectColors[eff],emissiveIntensity:0.5});
+                var mesh=new THREE.Mesh(geom,mat);
+                mesh.position.set(charState.x+(Math.random()-0.5)*20,charState.y+10,charState.z+(Math.random()-0.5)*20);
+                mesh.userData={effect:eff,originalY:mesh.position.y,rotSpeed:0.1,floatSpeed:2,floatOff:0};
+                scene.add(mesh); collectibles.push(mesh);
+            }
+        }
+    },8000);
+
+    // Animation
+    var clock = new THREE.Clock();
+
+    function animate(){
+        requestAnimationFrame(animate);
+        var delta = clock.getDelta();
+        var time = clock.getElapsedTime();
+
+        var curSpeed = charState.baseSpeed;
+        if(activeEffects['speed-up']) curSpeed*=2.5;
+        if(activeEffects['slow-down']) curSpeed*=0.3;
+
+        var dx=0,dz=0, rev=activeEffects['reverse']?-1:1;
+        if(keys.up)dz-=rev; if(keys.down)dz+=rev; if(keys.left)dx-=rev; if(keys.right)dx+=rev;
+        if(dx!==0&&dz!==0){var len=Math.sqrt(dx*dx+dz*dz);dx/=len;dz/=len;}
+
+        charState.x+=dx*curSpeed; charState.z+=dz*curSpeed;
+        var bound=90; charState.x=Math.max(-bound,Math.min(bound,charState.x)); charState.z=Math.max(-bound,Math.min(bound,charState.z));
+
+        var th=getTerrainHeight(charState.x,charState.z);
+        var jf=activeEffects['bounce']?0.4:0.25;
+        if(keys.jump&&charState.onGround){charState.vy=jf;charState.onGround=false;}
+        charState.vy-=0.012; charState.y+=charState.vy;
+        if(charState.y<th+1.5){charState.y=th+1.5;charState.vy=0;charState.onGround=true;}
+
+        charGroup.position.set(charState.x,charState.y,charState.z);
+
+        if(dx!==0||dz!==0){
+            charGroup.rotation.y=Math.atan2(dx,dz);
+            charState.walkCycle+=delta*10;
+            lArm.rotation.x=Math.sin(charState.walkCycle)*0.5;
+            rArm.rotation.x=-Math.sin(charState.walkCycle)*0.5;
+            lLeg.rotation.x=-Math.sin(charState.walkCycle)*0.4;
+            rLeg.rotation.x=Math.sin(charState.walkCycle)*0.4;
+            charGroup.position.y+=Math.sin(charState.walkCycle*2)*0.05;
+        }else{
+            lArm.rotation.x=0;rArm.rotation.x=0;lLeg.rotation.x=0;rLeg.rotation.x=0;
+        }
+
+        camera.position.x+=(charState.x-camera.position.x)*0.1;
+        camera.position.z+=((charState.z+20)-camera.position.z)*0.1;
+        camera.position.y+=((charState.y+15)-camera.position.y)*0.1;
+        camera.lookAt(charState.x,charState.y+2,charState.z);
+
+        if(camera.userData.shake>0){
+            camera.position.x+=(Math.random()-0.5)*camera.userData.shake;
+            camera.position.y+=(Math.random()-0.5)*camera.userData.shake;
+            camera.userData.shake*=0.9;
+            if(camera.userData.shake<<0.01)camera.userData.shake=0;
+        }
+
+        for(var i=collectibles.length-1;i>=0;i--){
+            var item=collectibles[i];
+            item.rotation.y+=item.userData.rotSpeed;
+            item.rotation.x+=item.userData.rotSpeed*0.5;
+            item.position.y=item.userData.originalY+Math.sin(time*item.userData.floatSpeed+item.userData.floatOff)*0.5;
+            if(item.position.distanceTo(charGroup.position)<2.5){
+                triggerEffect(item.userData.effect);
+                spawnParticles(item.position, item.material.color.getHex());
+                scene.remove(item); collectibles.splice(i,1);
+            }
+        }
+
+        if(particles.visible){
+            var arr=particles.geometry.attributes.position.array;
+            var vels=particles.userData.vels;
+            for(var i=0;i<pCount;i++){
+                arr[i*3]+=vels[i].x; arr[i*3+1]+=vels[i].y; arr[i*3+2]+=vels[i].z;
+                vels[i].y-=0.01;
+            }
+            particles.geometry.attributes.position.needsUpdate=true;
+            particles.userData.life-=delta*2;
+            particles.material.opacity=particles.userData.life;
+            if(particles.userData.life<=0)particles.visible=false;
+        }
+
+        cloudGroup.children.forEach(function(c,idx){
+            c.position.x+=0.02*(idx%2===0?1:-1);
+            if(c.position.x>100)c.position.x=-100; if(c.position.x<-100)c.position.x=100;
+        });
+
+        water.position.y=-2+Math.sin(time*0.5)*0.2;
+        renderer.render(scene,camera);
+    }
+
+    // Resize
+    window.addEventListener('resize',function(){
+        var w=container.clientWidth, h=container.clientHeight;
+        camera.aspect=w/h; camera.updateProjectionMatrix(); renderer.setSize(w,h);
+    });
+
+    // CSS animations injection
+    var style = document.createElement('style');
+    style.textContent = '@keyframes fwSlide{from{transform:translateY(-50px);opacity:0}to{transform:translateY(0);opacity:1}} @keyframes fwFade{to{opacity:0;transform:translateY(-20px)}}';
+    document.head.appendChild(style);
+
+    charState.y=getTerrainHeight(0,0)+1.5;
+    charGroup.position.y=charState.y;
+    animate();
+})();
+</script>
